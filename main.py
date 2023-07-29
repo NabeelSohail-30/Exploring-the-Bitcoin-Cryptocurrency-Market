@@ -1,170 +1,103 @@
-# Importing pandas
 import pandas as pd
-# Importing matplotlib and setting aesthetics for plotting later.
 import matplotlib.pyplot as plt
 
+# Set the style for plots
 plt.style.use('fivethirtyeight')
 
-# Reading datasets/coinmarketcap_06122017.csv into pandas
+# Read the dataset into pandas
 dec6 = pd.read_csv('datasets/coinmarketcap_06122017.csv')
 
-# Selecting the 'id' and the 'market_cap_usd' columns
-market_cap_raw = dec6[["id", "market_cap_usd"]]
+# Filter out rows without a market capitalization
+cap = dec6[dec6['market_cap_usd'] > 0]
 
-# Counting the number of values
-print(market_cap_raw.count())
+# Get the top 10 market capitalization coins
+cap10 = cap.nlargest(10, 'market_cap_usd').set_index('id')
 
-# Filtering out rows without a market capitalization
-cap = market_cap_raw.query('market_cap_usd > 0')
+# Calculate the percentage of market capitalization for each coin
+cap10['market_cap_perc'] = (cap10['market_cap_usd'] / cap['market_cap_usd'].sum()) * 100
 
-# Counting the number of values again
-print(cap.count())
-
-#Declaring these now for later use in the plots
-TOP_CAP_TITLE = 'Top 10 market capitalization'
-TOP_CAP_YLABEL = '% of total cap'
-
-# Selecting the first 10 rows and setting the index
-cap10 = cap[:10].set_index('id')
-
-# Calculating market_cap_perc
-cap10 = cap10.assign(market_cap_perc = lambda x: (x.market_cap_usd / cap.market_cap_usd.sum())*100)
-
-# Plotting the barplot with the title defined above
-ax = cap10.market_cap_perc.plot.bar(title=TOP_CAP_TITLE)
-
-# Annotating the y axis with the label defined above
-ax.set_ylabel(TOP_CAP_YLABEL);
-
-plt.show()
-
-
-# Customizing the colors for the bar plot
+# Custom colors for the bar plots
 COLORS = ['orange', 'green', 'red', 'cyan', 'blue', 'gray', 'purple', 'brown', 'pink', 'lightblue']
 
-# Plotting market_cap_usd as before but adding the colors and scaling the y-axis
-ax = cap10.market_cap_usd.plot.bar(title=TOP_CAP_TITLE, logy=True, color=COLORS)
+# Plot the top 10 market capitalization coins
+ax = cap10['market_cap_perc'].plot.bar(title='Top 10 Market Capitalization', color=COLORS)
+ax.set_ylabel('% of Total Cap')
 
-# Annotating the y axis with 'USD'
-ax.set_ylabel('USD (log scale)')
+# Add commas to y-axis labels for better readability
+ax.set_yticklabels(['{:,}'.format(int(x)) for x in ax.get_yticks()])
 
-# Final touch! Removing the xlabel as it is not very informative
-ax.set_xlabel('')
-
-# Adding commas to y-axis labels for better readability
-ax.set_yticklabels(['{:,.0f}'.format(x) for x in ax.get_yticks()])
-
-# Displaying the plot
 plt.show()
 
+# Plot market_cap_usd with log scale on the y-axis
+ax = cap10['market_cap_usd'].plot.bar(title='Top 10 Market Capitalization', logy=True, color=COLORS)
+ax.set_ylabel('USD (log scale)')
+ax.set_xlabel('')
+ax.set_yticklabels(['{:,}'.format(int(x)) for x in ax.get_yticks()])
 
-# Selecting the id, percent_change_24h and percent_change_7d columns
-volatility = dec6[['id', 'percent_change_24h', 'percent_change_7d']]
+plt.show()
 
-# Setting the index to 'id' and dropping all NaN rows
-volatility = volatility.set_index('id').dropna()
+# Select coins with non-null percent_change_24h and percent_change_7d
+volatility = dec6[['id', 'percent_change_24h', 'percent_change_7d']].dropna()
 
-# Sorting the DataFrame by percent_change_24h in ascending order
-volatility = volatility.sort_values(by='percent_change_24h', ascending=True)
-
-# Checking the first few rows
-print(volatility.head())
+# Sort by percent_change_24h in ascending order
+volatility = volatility.sort_values(by='percent_change_24h')
 
 
-# Defining a function with 2 parameters, the series to plot and the title
+# Function to plot top 10 losers and winners
 def top10_subplot(volatility_series, title):
-    # Customizing the colors for the subplots
     colors_losers = ['darkred'] * 10
     colors_winners = ['darkblue'] * 10
-
-    # making the subplot and the figure for nrows and ncolumns
     fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 6))
-
-    # Plotting with pandas the barchart for the top 10 losers with the color RED
     ax = volatility_series[:10].plot.bar(color=colors_losers, ax=axes[0])
-
-    # Setting the main title to TITLE
     fig.suptitle(title)
-
-    # Setting the ylabel to "% change"
-    ax.set_ylabel('% change')
-
-    # Same as above, but for the top 10 winners and in darkblue
-    ax = volatility_series[-10:].plot.bar(color=colors_winners, ax=axes[1])
-
-    # Setting the main title to TITLE
-    fig.suptitle(title)
-
-    # Setting the ylabel to "% change"
     ax.set_ylabel('% Change')
-
-    # Adjusting the space between subplots
+    ax = volatility_series[-10:].plot.bar(color=colors_winners, ax=axes[1])
+    ax.set_ylabel('% Change')
     plt.tight_layout()
-
-    # Returning this for good practice, might use later
     return fig, ax
 
 
-DTITLE = "24 hours top losers and winners"
-
-# Calling the function above with the volatility.percent_change_24h series
-# and title DTITLE
-fig, ax = top10_subplot(volatility.percent_change_24h, DTITLE)
-
+# Plot top 10 losers and winners based on percent_change_24h
+DTITLE = "24 hours Top Losers and Winners"
+fig, ax = top10_subplot(volatility['percent_change_24h'], DTITLE)
 plt.show()
 
-# Sorting in ascending order
-volatility7d = volatility.sort_values("percent_change_7d")
+# Sort by percent_change_7d in ascending order
+volatility7d = volatility.sort_values(by='percent_change_7d')
 
-WTITLE = "Weekly top losers and winners"
-
-# Calling the top10_subplot function
-fig, ax = top10_subplot(volatility7d.percent_change_7d, WTITLE);
+# Plot top 10 losers and winners based on percent_change_7d
+WTITLE = "Weekly Top Losers and Winners"
+fig, ax = top10_subplot(volatility7d['percent_change_7d'], WTITLE)
 plt.show()
 
-# Selecting everything bigger than 10 billion
-largecaps = cap.query('market_cap_usd > 10000000000')
+# Select coins with market_cap_usd greater than 10 billion
+largecaps = cap[cap['market_cap_usd'] > 1E10]
 
-# Printing out largecaps
-print(largecaps)
 
-# Making a nice function for counting different marketcaps from the
-# "cap" DataFrame. Returns an int.
+# Count different market cap sizes
 def capcount(query_string):
-    return cap.query(query_string).count().id
+    return cap.query(query_string).shape[0]
+
 
 # Labels for the plot
-LABELS = ["biggish", "micro", "nano"]
+LABELS = ["Biggish", "Micro", "Nano"]
 
-# Using capcount count the not_so_small cryptos
+# Count the cryptocurrencies in each market cap size category
 biggish = capcount("market_cap_usd > 3E+8")
-
-# Same as above for micro ...
 micro = capcount("market_cap_usd >= 5E+7 & market_cap_usd < 3E+8")
-
-# ... and for nano
 nano = capcount("market_cap_usd < 5E+7")
 
-# Making a list with the 3 counts
+# Plot the market cap size distribution
 values = [biggish, micro, nano]
-
-# Plotting them with matplotlib
-# Customizing the colors for the bar plot
 colors = ['purple', 'orange', 'green']
 
-# Plotting them with matplotlib
 plt.bar(range(len(values)), values, tick_label=LABELS, color=colors)
 
-# Adding labels to the bars
+# Add labels to the bars
 for i, v in enumerate(values):
     plt.text(i, v + 20, str(v), ha='center', va='bottom', fontweight='bold')
 
-# Adding a title
 plt.title('Market Cap Size Distribution')
-
-# Adding a label to the y-axis
 plt.ylabel('Number of Cryptocurrencies')
 
-# Displaying the plot
 plt.show()
-
